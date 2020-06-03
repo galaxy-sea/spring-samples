@@ -12,9 +12,6 @@ import org.springframework.stereotype.Component;
 @Component
 public class HelloWorldRedisClient {
 
-    //@Autowired
-    //private ValueOperations<String, String> valueOperations;
-
     @Autowired
     private RedisTemplate<Object, Object> redisTemplate;
 
@@ -24,6 +21,4 @@ public class HelloWorldRedisClient {
         Object hello = objectObjectValueOperations.get("hello");
         return hello;
     }
-
-
 }

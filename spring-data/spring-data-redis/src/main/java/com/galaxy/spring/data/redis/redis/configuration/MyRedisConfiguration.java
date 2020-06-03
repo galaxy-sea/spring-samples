@@ -58,7 +58,7 @@ public class MyRedisConfiguration {
         //redisTemplate.setBeanClassLoader();
         redisTemplate.setConnectionFactory(mytRedisConnectionFactory);
 
-        //redisTemplate.afterPropertiesSet();
+        redisTemplate.afterPropertiesSet();
 
         return redisTemplate;
     }
