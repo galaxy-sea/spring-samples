@@ -2,6 +2,7 @@ package com.galaxy.spring.data.redis;
 
 import com.galaxy.spring.data.redis.redis.client.HelloMyRedisRedisClient;
 import com.galaxy.spring.data.redis.redis.client.HelloWorldRedisClient;
+import com.galaxy.spring.data.redis.redis.client.TransactionsRedisClient;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -14,6 +15,9 @@ class SpringDataRedisApplicationTests {
 
     @Autowired
     private HelloMyRedisRedisClient helloMyRedisRedisClient;
+
+    @Autowired
+    private TransactionsRedisClient transactionsRedisClient;
 
     @Test
     void contextLoads() {
@@ -30,6 +34,16 @@ class SpringDataRedisApplicationTests {
     public void HelloRedisTest(){
         Object o = helloMyRedisRedisClient.helloRedis();
         System.out.println(o);
+    }
+
+    @Test
+    public void redisTransactionsTest(){
+        transactionsRedisClient.redisTransactions();
+    }
+
+    @Test
+    public void transactionsTest(){
+        transactionsRedisClient.transactions();
     }
 
 }
