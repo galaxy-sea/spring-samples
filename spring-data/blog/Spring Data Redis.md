@@ -22,9 +22,9 @@
   - [3.7. ZSetOperations and BoundZSetOperations](#37-zsetoperations-and-boundzsetoperations)
   - [3.8. GeoOperations and BoundGeoOperations](#38-geooperations-and-boundgeooperations)
   - [3.9. HyperLogLogOperations](#39-hyperloglogoperations)
-- [事务](#事务)
-  - [编程事务](#编程事务)
-  - [声明事务](#声明事务)
+- [4. 事务](#4-事务)
+  - [4.1. 编程事务](#41-编程事务)
+  - [4.2. 声明事务](#42-声明事务)
 
 <!-- /TOC -->
 
@@ -129,6 +129,10 @@ org.springframework.data.redis.core包下提供可丰富的接口进行操作,
 | void rename(K oldKey, K newKey)                                                               | RENAME key newkey                                              | 修改 key 的名称                                                                                                                                                                     |
 | Boolean renameIfAbsent(K oldKey, K newKey)                                                    | RENAMENX key newkey                                            | 仅当 newkey 不存在时，将 key 改名为 newkey                                                                                                                                          |
 | DataType type(K key)                                                                          | TYPE key                                                       | 返回 key 所储存的值的类型                                                                                                                                                           |
+| void multi()                                                                                  | MULTI                                                          | 标记一个事务块的开始                                                                                                                                                                |
+| List<Object> exec()                                                                           | EXEC                                                           | 执行所有事务块内的命令                                                                                                                                                              |
+| void discard()                                                                                | DISCARD                                                        | 取消事务，放弃执行事务块内的所有命令                                                                                                                                                |
+
 
 
 ## 3.3. ValueOperations and BoundValueOperations
@@ -270,9 +274,72 @@ org.springframework.data.redis.core包下提供可丰富的接口进行操作,
 | void delete(K key)                         | -                                         | -                                         |
 
 
-# 事务
-## 编程事务
+# 4. 事务
+## 4.1. 编程事务
 
-## 声明事务
+`Redis` 通过`multi`，`exec`和`discard`命令为`transactions`提供支持。这些操作可在`RedisTemplate`上获得。但是，`RedisTemplate`不保证使用相同的连接执行 `transaction` 中的所有操作
+Spring Data Redis 提供`SessionCallback`接口，以便在需要使用相同的`connection`执行多个操作时使用，例如使用 Redis transactions 时。以下 example 使用`multi`方法
+
+```java
+//execute a transaction
+List<Object> txResults = redisTemplate.execute(new SessionCallback<List<Object>>() {
+  public List<Object> execute(RedisOperations operations) throws DataAccessException {
+    operations.multi();
+    operations.opsForSet().add("key", "value1");
+
+    // This will contain the results of all operations in the transaction
+    return operations.exec();
+  }
+});
+System.out.println("Number of items added to set: " + txResults.get(0));
+
+```
 
 
+## 4.2. 声明事务
+
+默认情况下，transaction 支持已禁用，必须通过设置`setEnableTransactionSupport(true)`为每个正在使用的`RedisTemplate`显式启用。这样做会强制_将当前`RedisConnection`绑定到触发`MULTI`的当前`Thread`。
+如果 transaction 完成且没有错误，则调用`EXEC`。否则调用`DISCARD`。进入`MULTI`后，`RedisConnection`队列写入操作。所有`readonly`操作(例如`KEYS`)都通过管道传输到新的(non-thread-bound)`RedisConnection`。
+
+以下 example 显示了如何配置 transaction management
+
+```java
+@Configuration
+@EnableTransactionManagement                                 // (1)配置 Spring Context 以启用声明性 transaction management
+public class RedisTxContextConfiguration {
+
+  @Bean
+  public StringRedisTemplate redisTemplate() {
+    StringRedisTemplate template = new StringRedisTemplate(redisConnectionFactory());
+    // explicitly enable transaction support
+    template.setEnableTransactionSupport(true);             // (2)通过 binding 与当前线程的连接，将RedisTemplate配置为参与 transactions
+    return template;
+  }
+
+  @Bean
+  public RedisConnectionFactory redisConnectionFactory() {
+    // jedis || Lettuce || srp || ...
+  }
+
+  @Bean
+  public PlatformTransactionManager transactionManager() throws SQLException {
+    return new DataSourceTransactionManager(dataSource());   // (3)Transaction management 需要PlatformTransactionManager。 Spring Data Redis 未附带PlatformTransactionManager implementation。假设您的 application 使用 JDBC，Spring Data Redis 可以使用现有的 transaction managers 参与 transactions
+  }
+
+  @Bean
+  public DataSource dataSource() throws SQLException {
+    // ...
+  }
+}
+```
+
+```java
+// must be performed on thread-bound connection
+template.opsForValue().set("thing1", "thing2");
+
+// read operation must be executed on a free (not transaction-aware) connection
+template.keys("*");
+
+// returns null as values set within a transaction are not visible
+template.opsForValue().get("thing1");
+```

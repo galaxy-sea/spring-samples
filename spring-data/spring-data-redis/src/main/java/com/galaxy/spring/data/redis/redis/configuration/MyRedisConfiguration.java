@@ -132,10 +132,10 @@ public class MyRedisConfiguration {
         return new DataSourceTransactionManager(dataSource);
     }
 
-    @Bean
-    public DataSource dataSource() throws SQLException {
-        return DataSourceBuilder.create().build();
-    }
+    //@Bean
+    //public DataSource dataSource() throws SQLException {
+    //    return DataSourceBuilder.create().build();
+    //}
 
 
 }
